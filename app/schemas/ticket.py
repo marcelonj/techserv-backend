@@ -61,3 +61,4 @@ class TicketCreate(BaseModel):
 
 class TicketUpdate(BaseModel):
     estado: EstadoTicket | None = None
+    tecnico_id: uuid.UUID | None = None

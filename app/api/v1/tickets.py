@@ -101,7 +101,17 @@ async def update_ticket(
     if not ticket:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
     
-    setattr(ticket, "estado", payload.estado)
+    update_dict = payload.model_dump(exclude_unset=True)
+
+    if not update_dict:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se proporcionaron campos para actualizar"
+        )
+    
+    for key, value in update_dict.items():
+        setattr(ticket, key, value)
+
     await db.commit()
 
     query_vuelto_a_cargar = (
