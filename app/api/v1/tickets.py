@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -111,6 +112,10 @@ async def update_ticket(
     
     for key, value in update_dict.items():
         setattr(ticket, key, value)
+
+    if payload.estado:
+        if payload.estado == EstadoTicket.RESUELTO:
+            setattr(ticket, "fecha_cierre", datetime.now())
 
     await db.commit()
 
