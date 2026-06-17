@@ -35,6 +35,7 @@ class Ticket(BaseModel):
     urgencia: UrgenciaTicket
     direccion: str = Field(min_length=1, max_length=255)
     fecha_creacion: datetime | None = None
+    fecha_visita: datetime | None = None
     fecha_cierre: datetime | None = None
     cliente: ClienteTicket
     tecnico: TecnicoTicket | None = None
@@ -62,3 +63,4 @@ class TicketCreate(BaseModel):
 class TicketUpdate(BaseModel):
     estado: EstadoTicket | None = None
     tecnico_id: uuid.UUID | None = None
+    fecha_visita: datetime | None = None
