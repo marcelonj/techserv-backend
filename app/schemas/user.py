@@ -11,7 +11,7 @@ class UserBase(BaseModel):
     full_name: str = Field(min_length=1, max_length=255)
     role: UserRole
     company_id: uuid.UUID | None = None
-    phone: str
+    phone: str = Field(min_length=1, max_length=255)
 
 
 class UserCreate(UserBase):
