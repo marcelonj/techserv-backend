@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_roles
+from app.core.deps import get_current_user, require_roles, get_current_user_optional
 from app.core.security import UserRole, hash_password
 from app.models import User
 from app.schemas.user import MeResponse, UserCreate, UserRead, UserUpdate
@@ -47,15 +47,21 @@ async def list_clientes(
 @router.post("", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def create_user(
     payload: UserCreate,
-    _: Annotated[User, Depends(require_roles(UserRole.ADMINISTRADOR, UserRole.AREA_ADMINISTRATIVA))],
+    # Pasamos la función SIN paréntesis. current_user puede ser User o None.
+    current_user: Annotated[User | None, Depends(get_current_user_optional)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> User:
-    if payload.role == UserRole.ADMINISTRADOR:
+    
+    roles_restringidos = (UserRole.ADMINISTRADOR, UserRole.AREA_ADMINISTRATIVA, UserRole.SUPERVISOR)
+    
+    is_admin = current_user and current_user.role == UserRole.ADMINISTRADOR
+    
+    if not is_admin and payload.role in roles_restringidos:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Cannot register an administrador",
+            detail="You do not have permission to assign high-privileged roles.",
         )
-    
+
     existing = await db.execute(select(User).where(User.email == payload.email))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Email already registered")
