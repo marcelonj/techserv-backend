@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.security import UserRole, create_access_token, hash_password, verify_password
+from app.core.security import UserRole, create_access_token, create_refresh_token, hash_password, verify_password
 from app.models import User
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
 
@@ -41,7 +41,8 @@ async def register(
     await db.flush()
 
     token = create_access_token(user.id, user.email, UserRole(user.role))
-    return TokenResponse(access_token=token)
+    refresh_token = create_refresh_token(user.id, user.email, UserRole(user.role), 10080)
+    return TokenResponse(access_token=token, refresh_token=refresh_token)
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -62,4 +63,5 @@ async def login(
         raise HTTPException(status_code=403, detail="User account is inactive")
 
     token = create_access_token(user.id, user.email, UserRole(user.role))
-    return TokenResponse(access_token=token)
+    refresh_token = create_refresh_token(user.id, user.email, UserRole(user.role), user.token_version, 10080)
+    return TokenResponse(access_token=token, refresh_token=refresh_token)
