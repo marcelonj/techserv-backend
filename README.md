@@ -145,13 +145,42 @@ Alternativa manual vía Swagger:
 
 ## Tests
 
+Ejecutar toda la suite:
+
 ```bash
 python -m pytest
-python -m pytest tests/test_api.py -v
-python -m pytest tests/test_api.py::test_health -v
+python -m pytest -v
 ```
 
-Suite actual: health, auth básica, `/me`, listado de usuarios y utilidades de seguridad (JWT, bcrypt).
+Por módulo:
+
+```bash
+python -m pytest tests/test_api.py -v
+python -m pytest tests/test_auth.py -v
+python -m pytest tests/test_users.py -v
+python -m pytest tests/test_tickets.py -v
+python -m pytest tests/test_equipos.py -v
+python -m pytest tests/test_security.py -v
+```
+
+Prueba individual (ejemplos):
+
+```bash
+python -m pytest tests/test_api.py::test_health -v
+python -m pytest tests/test_auth.py::test_register_success -v
+python -m pytest tests/test_users.py::test_create_user_as_admin -v
+python -m pytest tests/test_tickets.py::test_create_ticket_as_cliente -v
+python -m pytest tests/test_equipos.py::test_create_equipo_as_cliente -v
+python -m pytest tests/test_security.py::test_jwt_roundtrip -v
+```
+
+Listar todas las pruebas disponibles:
+
+```bash
+python -m pytest tests/ --collect-only -q
+```
+
+Cobertura: health, auth, usuarios, tickets, equipos y seguridad (JWT, bcrypt). **37 pruebas** en total.
 
 ## Documentación de diseño
 
