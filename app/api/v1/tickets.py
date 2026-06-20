@@ -23,7 +23,7 @@ async def list_tickets(
     query = select(Ticket).options(
         joinedload(Ticket.cliente), 
         joinedload(Ticket.tecnico), 
-        joinedload(Ticket.equipo)).order_by(Ticket.fecha_creacion.desc())
+        joinedload(Ticket.equipo)).where(Ticket.is_active == True).order_by(Ticket.fecha_creacion.desc())
 
     if current_user.role == UserRole.CLIENTE:
         query = query.where(Ticket.cliente_id == current_user.id)
@@ -43,7 +43,7 @@ async def one_ticket(
     query = select(Ticket).options(
         joinedload(Ticket.cliente), 
         joinedload(Ticket.tecnico), 
-        joinedload(Ticket.equipo)).where(Ticket.id == id)
+        joinedload(Ticket.equipo)).where(Ticket.id == id).where(Ticket.is_active == True)
     result = await db.execute(query)
     ticket = result.scalars().first()
 
@@ -95,7 +95,7 @@ async def update_ticket(
     current_user: Annotated[User, Depends(require_roles(UserRole.ADMINISTRADOR, UserRole.SUPERVISOR, UserRole.TECNICO))],
     db: Annotated[AsyncSession, Depends(get_db)],
 )-> Ticket:
-    query = select(Ticket).where(Ticket.id == id)
+    query = select(Ticket).where(Ticket.id == id).where(Ticket.is_active == True)
     result = await db.execute(query)
     ticket = result.scalars().first()
 
@@ -131,3 +131,17 @@ async def update_ticket(
     result = await db.execute(query_vuelto_a_cargar)
     ticket = result.scalars().first()
     return ticket
+
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_ticket(
+    id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
+    result = await db.execute(select(Ticket).where(Ticket.id == id))
+    ticket = result.scalars().first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="ticket not found")
+    if ticket.estado != EstadoTicket.ABIERTO:
+        raise HTTPException(status_code=409, detail="ticket status is not abierto")
+    setattr(ticket, "is_active", False)
+    db.commit()
