@@ -131,3 +131,17 @@ async def update_ticket(
     result = await db.execute(query_vuelto_a_cargar)
     ticket = result.scalars().first()
     return ticket
+
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_ticket(
+    id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
+    result = await db.execute(select(Ticket).where(Ticket.id == id))
+    ticket = result.scalars().first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="ticket not found")
+    if ticket.estado != EstadoTicket.ABIERTO:
+        raise HTTPException(status_code=409, detail="ticket status is not abierto")
+    setattr(ticket, "is_active", False)
+    db.commit()
