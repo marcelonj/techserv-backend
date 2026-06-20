@@ -180,7 +180,7 @@ Listar todas las pruebas disponibles:
 python -m pytest tests/ --collect-only -q
 ```
 
-Cobertura: health, auth, usuarios, tickets, equipos y seguridad (JWT, bcrypt). **37 pruebas** en total.
+Cobertura: health, auth (incl. refresh token), usuarios, tickets, equipos y seguridad (JWT, bcrypt). **40 pruebas** en total.
 
 ## Documentación de diseño
 

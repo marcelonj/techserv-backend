@@ -223,6 +223,23 @@ async def test_update_ticket_as_tecnico(client: AsyncClient, tecnico_token: str,
 
 
 @pytest.mark.asyncio
+async def test_update_ticket_resuelto_sets_fecha_cierre(
+    client: AsyncClient,
+    admin_token: str,
+    sample_ticket: Ticket,
+):
+    response = await client.patch(
+        f"/api/v1/tickets/{sample_ticket.id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"estado": EstadoTicket.RESUELTO},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["estado"] == EstadoTicket.RESUELTO
+    assert data["fecha_cierre"] is not None
+
+
+@pytest.mark.asyncio
 async def test_update_ticket_empty_body(client: AsyncClient, admin_token: str, sample_ticket: Ticket):
     response = await client.patch(
         f"/api/v1/tickets/{sample_ticket.id}",
