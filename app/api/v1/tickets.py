@@ -23,7 +23,7 @@ async def list_tickets(
     query = select(Ticket).options(
         joinedload(Ticket.cliente), 
         joinedload(Ticket.tecnico), 
-        joinedload(Ticket.equipo)).order_by(Ticket.fecha_creacion.desc())
+        joinedload(Ticket.equipo)).where(Ticket.is_active == True).order_by(Ticket.fecha_creacion.desc())
 
     if current_user.role == UserRole.CLIENTE:
         query = query.where(Ticket.cliente_id == current_user.id)
@@ -43,7 +43,7 @@ async def one_ticket(
     query = select(Ticket).options(
         joinedload(Ticket.cliente), 
         joinedload(Ticket.tecnico), 
-        joinedload(Ticket.equipo)).where(Ticket.id == id)
+        joinedload(Ticket.equipo)).where(Ticket.id == id).where(Ticket.is_active == True)
     result = await db.execute(query)
     ticket = result.scalars().first()
 
@@ -95,7 +95,7 @@ async def update_ticket(
     current_user: Annotated[User, Depends(require_roles(UserRole.ADMINISTRADOR, UserRole.SUPERVISOR, UserRole.TECNICO))],
     db: Annotated[AsyncSession, Depends(get_db)],
 )-> Ticket:
-    query = select(Ticket).where(Ticket.id == id)
+    query = select(Ticket).where(Ticket.id == id).where(Ticket.is_active == True)
     result = await db.execute(query)
     ticket = result.scalars().first()
 
