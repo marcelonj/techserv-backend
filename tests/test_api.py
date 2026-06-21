@@ -8,7 +8,16 @@ from app.core.security import UserRole
 async def test_health(client: AsyncClient):
     response = await client.get("/api/v1/health")
     assert response.status_code == 200
-    assert response.json()["status"] == "ok"
+    data = response.json()
+    assert data["status"] == "ok"
+    assert "timestamp" in data
+    assert data["version"] == "0.1.0"
+
+
+@pytest.mark.asyncio
+async def test_health_head(client: AsyncClient):
+    response = await client.head("/api/v1/health")
+    assert response.status_code == 200
 
 
 @pytest.mark.asyncio
@@ -48,6 +57,7 @@ async def test_login_success(client: AsyncClient):
     assert response.status_code == 200
     data = response.json()
     assert "access_token" in data
+    assert "refresh_token" in data
     assert data["token_type"] == "bearer"
 
 

@@ -1,14 +1,13 @@
-# TechServ Backend — Etapa 0
+# TechServ Backend
 
-API base con autenticación **JWT local** (sin Supabase), usuarios/roles y health check.
+API de gestión de servicios técnicos con autenticación **JWT local**, usuarios/roles, tickets y equipos.
 
-## Alcance (Etapa 0)
+## Alcance actual
 
-- FastAPI + PostgreSQL local (Docker Compose) + Redis
+- FastAPI + PostgreSQL (Docker Compose) + Redis (configurado, aún sin uso en la app)
 - Auth propia: **bcrypt** (contraseñas) + **python-jose** (JWT)
-- Modelo `users` + `companies`
-- Endpoints de auth: `POST /auth/register`, `POST /auth/login`
-- Endpoints protegidos: `GET /health`, `GET /me`, CRUD usuarios (admin)
+- Modelos: `companies`, `users`, `equipos`, `tickets`
+- Endpoints de auth, usuarios, tickets y equipos
 - CI con GitHub Actions
 - Documentación OpenAPI en `/docs`
 
@@ -19,6 +18,7 @@ cp .env.example .env
 docker compose up -d db redis
 python -m pip install -r requirements.txt
 python -m alembic upgrade head
+python -m scripts.seed_admin
 python -m uvicorn app.main:app --reload
 ```
 
@@ -62,9 +62,11 @@ POST /api/v1/auth/register
 | Variable | Descripción |
 |----------|-------------|
 | `JWT_SECRET_KEY` | Clave para firmar JWT (generar una larga y aleatoria) |
-| `JWT_EXPIRE_MINUTES` | Duración del token (default 60) |
+| `JWT_EXPIRE_MINUTES` | Duración del token (default **15**) |
 | `DATABASE_URL` | PostgreSQL async (FastAPI) |
 | `DATABASE_URL_SYNC` | PostgreSQL sync (Alembic) |
+| `REDIS_URL` | Redis (reservado para uso futuro) |
+| `CORS_ORIGINS` | Orígenes permitidos, separados por coma |
 
 Generar secret:
 
@@ -74,27 +76,64 @@ python -c "import secrets; print(secrets.token_urlsafe(32))"
 
 ## Endpoints
 
+Prefijo base: `/api/v1`
+
+### Health
+
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
-| GET | `/api/v1/health` | No | Health check |
-| POST | `/api/v1/auth/register` | No | Registro |
-| POST | `/api/v1/auth/login` | No | Login → JWT |
-| GET | `/api/v1/me` | JWT | Usuario autenticado |
-| GET | `/api/v1/users` | Admin | Listar usuarios |
-| POST | `/api/v1/users` | Admin | Crear usuario (con password) |
-| PATCH | `/api/v1/users/{id}` | Admin | Actualizar usuario |
+| GET | `/health` | No | Health check (`status`, `timestamp`, `version`) |
+| HEAD | `/health` | No | Igual que GET |
+
+### Auth
+
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| POST | `/auth/register` | No | Registro (no permite rol `administrador`) |
+| POST | `/auth/login` | No | Login → JWT |
+
+### Usuarios
+
+| Método | Ruta | Auth | Roles | Descripción |
+|--------|------|------|-------|-------------|
+| GET | `/me` | JWT | cualquiera | Perfil del usuario autenticado |
+| GET | `/users/me` | JWT | cualquiera | Alias de `/me` |
+| GET | `/users` | JWT | `administrador` | Listar todos los usuarios |
+| GET | `/users/tecnicos` | JWT | `administrador`, `area_administrativa`, `supervisor` | Listar técnicos |
+| GET | `/users/clientes` | JWT | `administrador`, `area_administrativa`, `supervisor` | Listar clientes |
+| POST | `/users` | JWT | `administrador`, `area_administrativa` | Crear usuario (no permite `administrador`) |
+| PATCH | `/users/{id}` | JWT | `administrador` | Actualizar usuario |
+
+### Tickets
+
+| Método | Ruta | Auth | Roles | Descripción |
+|--------|------|------|-------|-------------|
+| GET | `/tickets` | JWT | todos | Listar tickets (cliente: propios; técnico: asignados; resto: todos) |
+| GET | `/tickets/{id}` | JWT | todos | Detalle de ticket (con scoping por rol) |
+| POST | `/tickets` | JWT | `administrador`, `supervisor`, `cliente` | Crear ticket |
+| PATCH | `/tickets/{id}` | JWT | `administrador`, `supervisor`, `tecnico` | Actualizar `estado` y/o `tecnico_id` |
+
+Estados: `abierto`, `en_diagnostico`, `en_proceso`, `resuelto`  
+Urgencias: `alta`, `media`, `baja`
+
+### Equipos
+
+| Método | Ruta | Auth | Roles | Descripción |
+|--------|------|------|-------|-------------|
+| GET | `/equipos` | JWT | todos | Listar equipos (cliente: solo los propios) |
+| POST | `/equipos` | JWT | `administrador`, `supervisor`, `cliente` | Crear equipo |
 
 ## Crear el primer administrador
 
-Con la API levantada, un admin existente puede crear otro vía `POST /users`, o insertar en SQL:
+**Opción recomendada:** usar el script de seed después de migrar la base:
 
-```sql
--- password: admin123 (generar hash con POST /auth/register de un supervisor primero, o usar /users como admin seed)
+```bash
+python -m scripts.seed_admin
 ```
 
-**Opción recomendada:** crear el primer admin con script o `POST /api/v1/users` después de un seed manual.
+Crea `admin@techserv.local` / `admin123` y la empresa demo **TechServ Demo**.
 
-Seed rápido vía registro + SQL para cambiar rol, o usar este flujo en Swagger:
+Alternativa manual vía Swagger:
 
 1. `POST /auth/register` con rol `supervisor`
 2. En DB: `UPDATE users SET role = 'administrador' WHERE email = '...';`
@@ -106,9 +145,42 @@ Seed rápido vía registro + SQL para cambiar rol, o usar este flujo en Swagger:
 
 ## Tests
 
+Ejecutar toda la suite:
+
 ```bash
 python -m pytest
+python -m pytest -v
 ```
+
+Por módulo:
+
+```bash
+python -m pytest tests/test_api.py -v
+python -m pytest tests/test_auth.py -v
+python -m pytest tests/test_users.py -v
+python -m pytest tests/test_tickets.py -v
+python -m pytest tests/test_equipos.py -v
+python -m pytest tests/test_security.py -v
+```
+
+Prueba individual (ejemplos):
+
+```bash
+python -m pytest tests/test_api.py::test_health -v
+python -m pytest tests/test_auth.py::test_register_success -v
+python -m pytest tests/test_users.py::test_create_user_as_admin -v
+python -m pytest tests/test_tickets.py::test_create_ticket_as_cliente -v
+python -m pytest tests/test_equipos.py::test_create_equipo_as_cliente -v
+python -m pytest tests/test_security.py::test_jwt_roundtrip -v
+```
+
+Listar todas las pruebas disponibles:
+
+```bash
+python -m pytest tests/ --collect-only -q
+```
+
+Cobertura: health, auth (incl. refresh token), usuarios, tickets, equipos y seguridad (JWT, bcrypt). **40 pruebas** en total.
 
 ## Documentación de diseño
 

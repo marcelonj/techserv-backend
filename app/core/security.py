@@ -35,6 +35,8 @@ class TokenPayload(BaseModel):
     email: str | None = None
     role: str | None = None
     exp: int | None = None
+    token_type: str | None = None
+    version: int | None = None
 
 
 def hash_password(password: str) -> str:
@@ -62,9 +64,31 @@ def create_access_token(
         "role": role.value if isinstance(role, UserRole) else role,
         "iat": int(now.timestamp()),
         "exp": int(expire.timestamp()),
+        "token_type": "access",
     }
+    print(f"JWT enviado: {jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)}")
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
+def create_refresh_token(
+    user_id: uuid.UUID,
+    email: str,
+    role: UserRole,
+    version: int,
+    expires_minutes: int | None = None,
+) -> str:
+    now = datetime.now(UTC)
+    expire = now + timedelta(minutes=expires_minutes or settings.jwt_expire_minutes)
+    payload = {
+        "sub": str(user_id),
+        "email": email,
+        "role": role.value if isinstance(role, UserRole) else role,
+        "iat": int(now.timestamp()),
+        "exp": int(expire.timestamp()),
+        "token_type": "refresh",
+        "version": version,
+    }
+    print(f"JWT enviado: {jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)}")
+    return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 def decode_jwt(token: str) -> TokenPayload:
     try:
@@ -85,6 +109,8 @@ def decode_jwt(token: str) -> TokenPayload:
         email=payload.get("email"),
         role=payload.get("role"),
         exp=payload.get("exp"),
+        token_type=payload.get("token_type"),
+        version=payload.get("version"),
     )
 
 

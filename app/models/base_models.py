@@ -26,6 +26,7 @@ class User(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    token_version: Mapped[int] = mapped_column(default=1, nullable=True)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[UserRole] = mapped_column(String(50), nullable=False, index=True)
     company_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -54,6 +55,7 @@ class Equipo(Base):
     marca: Mapped[str] = mapped_column(String(255), nullable=False)
     modelo: Mapped[str] = mapped_column(String(255), nullable=False)
     numero_serie: Mapped[str] = mapped_column(String(255), nullable=False)
+    fecha_creacion: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     cliente_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
@@ -62,7 +64,7 @@ class Equipo(Base):
     )
 
     users: Mapped[User] = relationship(back_populates="equipos")
-    tickets: Mapped[list["Ticket"] | None] = relationship(back_populates="equipos")
+    tickets: Mapped[list["Ticket"] | None] = relationship(back_populates="equipo")
 
 class Ticket(Base):
     __tablename__ = "tickets"
@@ -72,13 +74,16 @@ class Ticket(Base):
     descripcion: Mapped[str] = mapped_column(String(255), nullable=False)
     estado: Mapped[EstadoTicket] = mapped_column(String(255), nullable=False)
     urgencia: Mapped[UrgenciaTicket] = mapped_column(String(255), nullable=False)
+    direccion: Mapped[str] = mapped_column(String(255), nullable=True)
     fecha_creacion: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    fecha_visita: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     fecha_cierre: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=True)
     cliente_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
     tecnico_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
     equipo_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("equipos.id"), nullable=False
@@ -86,4 +91,4 @@ class Ticket(Base):
 
     cliente: Mapped["User"] = relationship("User", foreign_keys=[cliente_id], back_populates="tickets_como_cliente")
     tecnico: Mapped["User"] = relationship("User", foreign_keys=[tecnico_id], back_populates="tickets_como_tecnico")
-    equipos: Mapped[Equipo] = relationship(back_populates="tickets")        
+    equipo: Mapped[Equipo] = relationship(back_populates="tickets")        

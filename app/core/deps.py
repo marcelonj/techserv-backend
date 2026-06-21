@@ -62,3 +62,33 @@ def require_roles(*roles: UserRole):
         return current_user
 
     return _require_roles
+
+async def get_token_payload_optional(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)] = None,
+) -> TokenPayload | None:
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        return None
+    try:
+        return decode_jwt(credentials.credentials)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+        ) from exc
+
+async def get_current_user_optional(
+    payload: Annotated[TokenPayload | None, Depends(get_token_payload_optional)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> User | None:
+    if payload is None:
+        return None
+        
+    user_id = uuid.UUID(payload.sub)
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found in system")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="User account is inactive")
+    return user
